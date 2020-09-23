@@ -3,7 +3,8 @@ function [X] = calc_pca(features,comNum,trialsNum)
 %and returns the projection of the data on the top @comNum eigen vectors
 
 
-Z = zscore(features,0,1);
+% Z = zscore(features,0,1); %why???
+Z = features;
 meanSample = mean(Z,1); % Calculates the mean for each component
 X = (Z - meanSample)'; % Substractes the mean from features
 Cov = (X*X')./(trialsNum-1); % Calculate the Covariance matrix
