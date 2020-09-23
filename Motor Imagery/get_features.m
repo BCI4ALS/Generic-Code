@@ -1,86 +1,81 @@
-function [features] = get_features(data,C3Bands,C3TimesSmp,C4Bands,C4TimesSmp,C3DiffC4Bands,C3DiffC4TimesSmp,imageryStart,imageryEnd,numTrials,welchWindow,noverlap,freqVec,fs)
-%GET_FEATURES extracts features from the data for classification for each electrode individually and for the difference between electrodes.
-%   bands and times for C3 and C4 electrodes are in @C3Bands, @C4Bands and @C3TimesSmp, C4TimesSmp
-%   respectively. times and bands for the difference are in @C3DiffC4TimesSmp and @C3DiffC4Bands respectively.
-%   @imageryStart and @imageryEnd indicate the
-%   starting and ending times of visual imagery. @numTrials - number of
-%   trials. @welchWindow, @noverlap, @fs are parameters for pwelch function (welchWindow
-%   size, overlap size and sampling rate respectively). @freqVec is the
-%   frequency vector.
+% Extracts custom made features from the data.
+% The features adapted to specific motor imagery data and paradigm
+% Remove / comment out features you don't use
+% Replace these features with features that reflect your data and your findings
+%
+% inputs:
+%   MIeeg
+% outputs:
+%   features - feature values matrix: trial x feature
+%   featureNames
+%
+% This code is part of the BCI-4-ALS Course written by Daniel Polyakov
+% (polydani@post.bgu.ac.il) in 2020. You are free to use, change, adapt and
+% so on - but please cite properly if published.
+%
+function [features, featureNames] = get_features(MIeeg)
 
-%% memory allocation
+features = [];
+featureNames = [];
 
-freqC3 = zeros(numTrials,size(C3Bands,2)); % C3 relative band log power 
-freqC4 = zeros(numTrials,size(C4Bands,2)); % C4 relative band log power 
-rootTotalPowerC3 = zeros(numTrials,1); % C3 root total power
-rootTotalPowerC4 = zeros(numTrials,1); % C4 root total power
-spectralMomentC3 = zeros(numTrials,1); % C3 spectralMoment
-spectralMomentC4 = zeros(numTrials,1); % C4 spectral moment
-spectralEntropyC3 = zeros(numTrials,1); % C3 spectral entropy
-spectralEntropyC4 = zeros(numTrials,1); % C4 spectral entropy
+c3Inx = strcmp(MIeeg.elecNames,'C3');
+c4Inx = strcmp(MIeeg.elecNames,'C4');
 
+sampleRange = 1:size(MIeeg.data,2);
+imaginPeriodSmp = sampleRange(sampleRange>=MIeeg.imaginPeriodSec(1)*MIeeg.fs & ...
+    sampleRange<=MIeeg.imaginPeriodSec(2)*MIeeg.fs);
+extendedImaginPeriodSmp = sampleRange(sampleRange>=1.5*MIeeg.fs & ... %in case starting imagining during the preparation time
+    sampleRange<=MIeeg.imaginPeriodSec(2)*MIeeg.fs); %used for normalization
 
-%% feature extraction
+[c3Pxx, f] = pwelch(MIeeg.data(:,imaginPeriodSmp,c3Inx)',round(1.5*MIeeg.fs),[],[],MIeeg.fs);
+[c4Pxx, f] = pwelch(MIeeg.data(:,imaginPeriodSmp,c4Inx)',round(1.5*MIeeg.fs),[],[],MIeeg.fs);
 
-for i = 1:numTrials
-    %% C3 features
-    
-    welchC3 = pwelch(data(i,imageryStart:imageryEnd,1),welchWindow,noverlap,freqVec,fs); % pwelch for C3 data
-    C3band1 = welchC3(freqVec >= C3Bands{1,1}(1) & freqVec <= C3Bands{1,1}(2)); % first band
-    C3band2 = welchC3(freqVec >= C3Bands{1,2}(1) & freqVec <= C3Bands{1,2}(2)); % second band
-    C3band3 = welchC3(freqVec >= C3Bands{1,3}(1) & freqVec <= C3Bands{1,3}(2)); % third band
-    rootTotalPowerC3(i) = sqrt(sum(welchC3));
-    probC3 = welchC3./sum(welchC3);
-    spectralMomentC3(i) = sum(sum(probC3.*freqVec'));
-    spectralEntropyC3(i) = -(sum(probC3.*log2(probC3)));
-    
-    
-    % relative log power calculation for chosen bands
-    logPowerC3 = 10*log10(exp(1).*welchC3./min(welchC3));
-    freqC3(i,1) = sum(10*log10(exp(1).*C3band1./min(C3band1)))./sum(logPowerC3);
-    freqC3(i,2) = sum(10*log10(exp(1).*C3band2./min(C3band2)))./sum(logPowerC3);
-    freqC3(i,3) = sum(10*log10(exp(1).*C3band3./min(C3band3)))./sum(logPowerC3);
-    
-    %% C4 features
-    
-    welchC4 = pwelch(data(i,imageryStart:imageryEnd,2),welchWindow,noverlap,freqVec,fs); % pwelch for C4 data
-    C4band1 = welchC4(freqVec >= C4Bands{1,1}(1) & freqVec <= C4Bands{1,1}(2)); % first band
-    C4band2 = welchC4(freqVec >= C4Bands{1,2}(1) & freqVec <= C4Bands{1,2}(2)); % second band
-    C4band3 = welchC4(freqVec >= C4Bands{1,3}(1) & freqVec <= C4Bands{1,3}(2)); % third band
-    rootTotalPowerC4(i) = sqrt(sum(welchC4));
-    probC4 = welchC4./sum(welchC4);
-    spectralMomentC4(i) = sum(sum(probC4.*freqVec'));  
-    spectralEntropyC4(i) = -(sum(probC4.*log2(probC4)));
-    
-    % relative log power for chosen bands 
-    logPowerC4 = 10*log10(exp(1).*welchC4./min(welchC4));
-    freqC4(i,1) = sum(10*log10(exp(1).*C4band1./min(C4band1)))./sum(logPowerC4);
-    freqC4(i,2) = sum(10*log10(exp(1).*C4band2./min(C4band2)))./sum(logPowerC4);
-    freqC4(i,3) = sum(10*log10(exp(1).*C4band3./min(C4band3)))./sum(logPowerC4);
- 
-end
-
-%% pure bands features (no pwelch)
-
-C3diffC4 = abs(data(:,:,1) - data(:,:,2)); % subtract C4 from C3 to remove intersected data so that we'll have only the difference between the electrodes
-featsC3diffC4 = cut_bands_by_times(C3diffC4,C3DiffC4Bands,C3DiffC4TimesSmp,numTrials,fs);
-featsC3diffC4sqrt = sqrt(featsC3diffC4);
-%  featsC3diffC4log = log(featsC3diffC4);
-
-% C3 features
-featsC3 = cut_bands_by_times(data(:,:,1),C3Bands,C3TimesSmp,numTrials,fs);
-featsC3sqrt = sqrt(featsC3);
-featsC3log = log(featsC3);
+c3FullRangePower = bandpower(MIeeg.data(:,extendedImaginPeriodSmp,c3Inx)');
+c4FullRangePower = bandpower(MIeeg.data(:,extendedImaginPeriodSmp,c4Inx)');
 
 
-% C4 features
-featsC4 = cut_bands_by_times(data(:,:,2),C4Bands,C4TimesSmp,numTrials,fs);
-featsC4sqrt = sqrt(featsC4);
-featsC4log = log(featsC4);
+%Features based on time series differences
+featureNames = [featureNames {'C3std'}];
+features = [features std(MIeeg.data(:,imaginPeriodSmp,c3Inx),[],2)];
+featureNames = [featureNames {'C4std'}];
+features = [features std(MIeeg.data(:,imaginPeriodSmp,c4Inx),[],2)];
 
+%Features based on spectral differences
+featureNames = [featureNames {'C3bndpwr1'}];
+features = [features bandpower(c3Pxx,f,[15 19],'psd')'];
+featureNames = [featureNames {'C3bndpwr2'}];
+features = [features bandpower(c3Pxx,f,[8.5 11],'psd')'];
+featureNames = [featureNames {'C4bndpwr1'}];
+features = [features bandpower(c4Pxx,f,[15 19],'psd')'];
+featureNames = [featureNames {'C4bndpwr2'}];
+features = [features bandpower(c4Pxx,f,[8.5 10],'psd')'];
+featureNames = [featureNames {'C4bndpwr3'}];
+features = [features bandpower(c4Pxx,f,[4.5 6.5],'psd')'];
 
+%Features based on relative power of spectral differences [dB]
+featureNames = [featureNames {'C3bndpwrDB1'}];
+periodSmp = sampleRange(sampleRange>=4*MIeeg.fs & sampleRange<=5.8*MIeeg.fs);
+features = [features 10*log10(bandpower(MIeeg.data(:,periodSmp,c3Inx)',MIeeg.fs,[14.5 19])./c3FullRangePower)'];
+featureNames = [featureNames {'C3bndpwrDB2'}];
+periodSmp = sampleRange(sampleRange>=3.7*MIeeg.fs & sampleRange<=5.8*MIeeg.fs);
+features = [features 10*log10(bandpower(MIeeg.data(:,periodSmp,c3Inx)',MIeeg.fs,[7 12.5])./c3FullRangePower)'];
+featureNames = [featureNames {'C3bndpwrDB3'}];
+periodSmp = sampleRange(sampleRange>=1.7*MIeeg.fs & sampleRange<=2.5*MIeeg.fs);
+features = [features 10*log10(bandpower(MIeeg.data(:,periodSmp,c3Inx)',MIeeg.fs,[49 63])./c3FullRangePower)'];
+featureNames = [featureNames {'C4bndpwrDB1'}];
+periodSmp = sampleRange(sampleRange>=3.7*MIeeg.fs & sampleRange<=5.8*MIeeg.fs);
+features = [features 10*log10(bandpower(MIeeg.data(:,periodSmp,c3Inx)',MIeeg.fs,[13 19.5])./c4FullRangePower)'];
+featureNames = [featureNames {'C4bndpwrDB2'}];
+periodSmp = sampleRange(sampleRange>=4*MIeeg.fs & sampleRange<=5.8*MIeeg.fs);
+features = [features 10*log10(bandpower(MIeeg.data(:,periodSmp,c3Inx)',MIeeg.fs,[29.5 36.5])./c4FullRangePower)'];
+featureNames = [featureNames {'C4bndpwrDB3'}];
+periodSmp = sampleRange(sampleRange>=1.7*MIeeg.fs & sampleRange<=3.3*MIeeg.fs);
+features = [features 10*log10(bandpower(MIeeg.data(:,periodSmp,c3Inx)',MIeeg.fs,[7.5 11.5])./c4FullRangePower)'];
 
-
-features = [ featsC3 featsC4  freqC3 freqC4 featsC3log featsC4log featsC3diffC4sqrt featsC4sqrt featsC3sqrt rootTotalPowerC3 rootTotalPowerC4 spectralMomentC3 spectralMomentC4 spectralEntropyC3 spectralEntropyC4];
-end
-
+%Features based on spectral entropy
+featureNames = [featureNames {'C3spectralEntropy'}];
+c3PxxPdf = c3Pxx./repmat(sum(c3Pxx,1),size(c3Pxx,1),1);
+features = [features sum(-c3PxxPdf.*log2(c3PxxPdf),1)'];
+featureNames = [featureNames {'C4spectralEntropy'}];
+c4PxxPdf = c4Pxx./repmat(sum(c4Pxx,1),size(c4Pxx,1),1);
+features = [features sum(-c4PxxPdf.*log2(c4PxxPdf),1)'];
