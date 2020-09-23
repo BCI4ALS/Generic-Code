@@ -22,7 +22,7 @@ kFolds = 5;
 %%%%%
 
 Model = []; %not needed in case of LDA
-[~, xErr] = class_predict(Model, components, components, MIeeg.labels);
+[~, xErr] = class_predict(Model, [], components, MIeeg.labels);
 fullAcc = 1-xErr;
 
 CVO = cvpartition(MIeeg.labels,'kfold',kFolds); % creates a cross-validation partition for data
