@@ -1,8 +1,8 @@
-function [binarySteady] = binaryStimInit(refreshRate,dynRange,stimTime,figureFlag)
+function [binarySteady] = binaryStimInit(refreshRate,freqList,stimTime,figureFlag)
 %% This function creats 3 vectors containing a binary sequence of sine waves 
-% dynRange - which frequencies to create 
-% refreshRate - refresh rate for the monitor
-% stimTime - overall time of binary sequence
+% freqList - list of frequencies to create [Hz]
+% refreshRate - refresh rate for the monitor [Hz]
+% stimTime - overall time of binary sequence [sec]
 % figureFlag - would you like to show the output waves?
 
 
@@ -20,8 +20,8 @@ time  = 0:dt:stimTime;                 % overall stim time
 binarySteady = [];
 
 %% Create sine wave
-for freq = 1:length(dynRange) 
-    binarySteady(freq,:) = real(exp( 1i*2*pi*dynRange(freq).*time ));  
+for freq = 1:length(freqList) 
+    binarySteady(freq,:) = cos(2*pi*freqList(freq).*time);  
 end
 
 %% Change to binary signal (0 & 1) for total dark and total white
@@ -31,5 +31,6 @@ binarySteady(binarySteady<0) = 0;
 %% Visualization for debugging
 if figureFlag
     figure;
-    plot(1:length(binarySteady),binarySteady);
+    stem(time,binarySteady);
+    xlabel('sec');
 end
